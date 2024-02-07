@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">= 3.8"
 dependencies = [
     "guardrails-ai>=0.3.2",
-    "openai>=1.11.1",
+    "litellm>=1.23.0"
 ]
 
 [project.optional-dependencies]

@@ -1,6 +1,5 @@
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, Optional
 from warnings import warn
-import os
 
 from guardrails.validator_base import (
     FailResult,
@@ -76,10 +75,11 @@ class GenericPromptValidator(Validator):
         """
         # 0. Create messages
         messages = [{"content": prompt, "role": "user"}]
+
         # 1. Get LLM response
         try:
             response = completion(model=self.llm_callable, messages=messages)
-            response = response.choices[0].message.content
+            response = response.choices[0].message.content  # type: ignore
         except Exception as e:
             raise RuntimeError(f"Error getting response from the LLM: {e}") from e
 
@@ -135,26 +135,3 @@ class GenericPromptValidator(Validator):
         # Else
         warn("The LLM generated an invalid response. Passing the validation...")
         return PassResult()
-
-
-if __name__ == "__main__":
-    from pydantic import BaseModel, Field
-    from guardrails import Guard
-
-    # Create a pydantic model with a field that uses the custom validator
-    class ValidatorTestObject(BaseModel):
-        text: str = Field(validators=[GenericPromptValidator(on_fail="exception")])
-
-    guard = Guard.from_pydantic(output_class=ValidatorTestObject)
-    value = """
-    {
-        "text": "The capital of France is Paris."
-    }
-    """
-    metadata = {
-        "validation_question": "Is Paris the capital of France?",
-        "pass_on_unsure": "True",
-    }
-
-    response = guard.parse(value, metadata=metadata)
-    print("Happy path response", response)
