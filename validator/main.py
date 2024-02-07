@@ -1,8 +1,6 @@
-import re
-import string
-from typing import Any, Callable, Dict, Optional
-
-import rstr
+from typing import Any, Callable, Dict, Optional, Union
+from warnings import warn
+import os
 
 from guardrails.validator_base import (
     FailResult,
@@ -11,61 +9,152 @@ from guardrails.validator_base import (
     Validator,
     register_validator,
 )
+from litellm import completion
 
 
-@register_validator(name="guardrails/regex_match", data_type="string")
-class RegexMatch(Validator):
-    """Validates that a value matches a regular expression.
+@register_validator(name="guardrails/generic_prompt_validator", data_type="string")
+class GenericPromptValidator(Validator):
+    """Validates an LLM-generated output by re-prompting an LLM to self-evaluate.
 
     **Key Properties**
 
     | Property                      | Description                       |
     | ----------------------------- | --------------------------------- |
-    | Name for `format` attribute   | `regex_match`                     |
+    | Name for `format` attribute   | `guardrails/self_eval_validator`  |
     | Supported data types          | `string`                          |
-    | Programmatic fix              | Generate a string that matches the regular expression |
+    | Programmatic fix              | N/A                               |
 
     Args:
-        regex: Str regex pattern
-        match_type: Str in {"search", "fullmatch"} for a regex search or full-match option
-    """  # noqa
+        on_fail (Callable, optional): A function to call when validation fails.
+            Defaults to None.
+    """
 
     def __init__(
         self,
-        regex: str,
-        match_type: Optional[str] = None,
+        llm_callable: str = "gpt-3.5-turbo",  # str for litellm model name
         on_fail: Optional[Callable] = None,
+        **kwargs,
     ):
-        # todo -> something forces this to be passed as kwargs and therefore xml-ized.
-        # match_types = ["fullmatch", "search"]
+        super().__init__(on_fail, llm_callable=llm_callable, **kwargs)
+        self.llm_callable = llm_callable
 
-        if match_type is None:
-            match_type = "fullmatch"
-        assert match_type in [
-            "fullmatch",
-            "search",
-        ], 'match_type must be in ["fullmatch", "search"]'
+    def get_validation_prompt(self, value: str, question: str) -> str:
+        """Generates the prompt to send to the LLM.
 
-        super().__init__(on_fail=on_fail, match_type=match_type, regex=regex)
-        self._regex = regex
-        self._match_type = match_type
+        Args:
+            value (str): The value to validate.
+            question (str): The question to ask the LLM.
+
+        Returns:
+            prompt (str): The prompt to send to the LLM.
+        """
+        prompt = f"""
+        As an oracle of truth and logic, your task is to evaluate an LLM-generated response by answering a simple rhetorical question based on the context of that response.
+        You have been provided with the 'LLM Response' and a 'Question', and you need to generate 'Your Answer'.
+        Please answer the question with just a 'Yes' or a 'No'. If you're unsure, say 'Unsure'. Any other text is forbidden.
+        You'll be evaluated based on how well you understand the question and how well you follow the instructions to answer the question.
+
+        LLM Response:
+        {value}
+
+        Question:
+        {question}
+
+        Your Answer:
+
+        """
+        return prompt
+
+    def get_llm_response(self, prompt: str) -> str:
+        """Gets the response from the LLM.
+
+        Args:
+            prompt (str): The prompt to send to the LLM.
+
+        Returns:
+            str: The response from the LLM.
+        """
+        # 0. Create messages
+        messages = [{"content": prompt, "role": "user"}]
+        # 1. Get LLM response
+        try:
+            response = completion(model=self.llm_callable, messages=messages)
+            response = response.choices[0].message.content
+        except Exception as e:
+            raise RuntimeError(f"Error getting response from the LLM: {e}") from e
+
+        # 2. Strip the response of any leading/trailing whitespaces
+        # and convert to lowercase
+        response = response.strip().lower()
+        # 3. Return the response
+        return response
 
     def validate(self, value: Any, metadata: Dict) -> ValidationResult:
-        p = re.compile(self._regex)
-        """Validates that value matches the provided regular expression."""
-        # Pad matching string on either side for fix
-        # example if we are performing a regex search
-        str_padding = (
-            "" if self._match_type == "fullmatch" else rstr.rstr(string.ascii_lowercase)
-        )
-        self._fix_str = str_padding + rstr.xeger(self._regex) + str_padding
+        """Validation method for the GenericPromptValidator
 
-        if not getattr(p, self._match_type)(value):
-            return FailResult(
-                error_message=f"Result must match {self._regex}",
-                fix_value=self._fix_str,
+
+        Args:
+            value (Any): The value to validate.
+            metadata (Dict): The metadata for the validation.
+
+        Returns:
+            ValidationResult: The result of the validation.
+        """
+        # 1. Get the question and arg from the metadata
+        validation_question = metadata.get("validation_question")
+        if validation_question is None:
+            raise RuntimeError(
+                "'validation_question' missing from metadata. "
+                "Please provide a question to prompt the LLM."
             )
+
+        pass_on_unsure = metadata.get(
+            "pass_on_unsure", False
+        )  # Default behavior: Fail on 'Unsure'
+
+        # 2. Setup the prompt
+        prompt = self.get_validation_prompt(value, validation_question)
+
+        # 3. Get the LLM response
+        llm_response = self.get_llm_response(prompt)
+
+        if llm_response == "no":
+            return FailResult(error_message="The LLM says 'No'. The validation failed.")
+
+        if llm_response == "yes":
+            return PassResult()
+
+        if llm_response == "unsure":
+            if pass_on_unsure:
+                warn("The LLM is unsure about the answer. Passing the validation...")
+                return PassResult()
+
+            warn("The LLM is unsure about the answer. Failing the validation...")
+            return FailResult(error_message="The LLM is unsure about the answer.")
+
+        # Else
+        warn("The LLM generated an invalid response. Passing the validation...")
         return PassResult()
 
-    def to_prompt(self, with_keywords: bool = True) -> str:
-        return "results should match " + self._regex
+
+if __name__ == "__main__":
+    from pydantic import BaseModel, Field
+    from guardrails import Guard
+
+    # Create a pydantic model with a field that uses the custom validator
+    class ValidatorTestObject(BaseModel):
+        text: str = Field(validators=[GenericPromptValidator(on_fail="exception")])
+
+    guard = Guard.from_pydantic(output_class=ValidatorTestObject)
+    value = """
+    {
+        "text": "The capital of France is Paris."
+    }
+    """
+    metadata = {
+        "validation_question": "Is Paris the capital of France?",
+        "pass_on_unsure": "True",
+    }
+
+    response = guard.parse(value, metadata=metadata)
+    print("Happy path response", response)
