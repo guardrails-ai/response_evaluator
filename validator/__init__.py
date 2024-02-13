@@ -1,3 +1,3 @@
-from .main import GenericPromptValidator
+from .main import SelfReflectValidator
 
-__all__ = ["GenericPromptValidator"]
+__all__ = ["SelfReflectValidator"]

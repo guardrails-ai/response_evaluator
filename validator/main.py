@@ -11,17 +11,17 @@ from guardrails.validator_base import (
 from litellm import completion
 
 
-@register_validator(name="guardrails/generic_prompt_validator", data_type="string")
-class GenericPromptValidator(Validator):
-    """Validates an LLM-generated output by re-prompting an LLM to self-evaluate.
+@register_validator(name="guardrails/self_reflect_validator", data_type="string")
+class SelfReflectValidator(Validator):
+    """Validates an LLM-generated output by re-prompting an LLM to self-reflect.
 
     **Key Properties**
 
-    | Property                      | Description                       |
-    | ----------------------------- | --------------------------------- |
-    | Name for `format` attribute   | `guardrails/self_eval_validator`  |
-    | Supported data types          | `string`                          |
-    | Programmatic fix              | N/A                               |
+    | Property                      | Description                          |
+    | ----------------------------- | ------------------------------------ |
+    | Name for `format` attribute   | `guardrails/self_reflect_validator`  |
+    | Supported data types          | `string`                             |
+    | Programmatic fix              | N/A                                  |
 
     Args:
         on_fail (Callable, optional): A function to call when validation fails.
@@ -90,7 +90,7 @@ class GenericPromptValidator(Validator):
         return response
 
     def validate(self, value: Any, metadata: Dict) -> ValidationResult:
-        """Validation method for the GenericPromptValidator
+        """Validation method for the SelfReflectValidator.
 
 
         Args:

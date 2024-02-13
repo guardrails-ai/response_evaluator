@@ -1,7 +1,7 @@
 [project]
-name = "generic-prompt-validator"
+name = "self-reflect-validator"
 version = "0.0.0"
-description = "A generic prompt validator for Guardrails AI"
+description = "A generic prompt-based validator for Guardrails AI"
 authors = [
     {name = "Guardrails AI", email = "contact@guardrailsai.com"}
 ]

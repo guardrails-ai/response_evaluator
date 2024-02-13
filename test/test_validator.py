@@ -1,12 +1,12 @@
 from guardrails import Guard
 from pydantic import BaseModel, Field
-from validator import GenericPromptValidator
+from validator import SelfReflectValidator
 import pytest
 
 
 # Create a pydantic model with a field that uses the custom validator
 class ValidatorTestObject(BaseModel):
-    text: str = Field(validators=[GenericPromptValidator(on_fail="exception")])
+    text: str = Field(validators=[SelfReflectValidator(on_fail="exception")])
 
 
 # Test happy path
