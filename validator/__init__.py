@@ -1,3 +1,3 @@
-from .main import SelfReflectValidator
+from .main import ResponseEvaluator
 
-__all__ = ["SelfReflectValidator"]
+__all__ = ["ResponseEvaluator"]
