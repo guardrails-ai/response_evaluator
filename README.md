@@ -82,6 +82,7 @@ guard.parse(
     """,
     metadata={
         "validation_question": "Is Caesar a great dog?",
+        "pass_on_unsure"=True
     }
 )  # Pass
 
