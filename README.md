@@ -4,22 +4,23 @@
 | --- | --- |
 | Date of development | Feb 15, 2024 |
 | Validator type | Format |
-| Blog |  |
+| Blog | - |
 | License | Apache 2 |
 | Input/Output | Output |
 
 ## Description
 
-This validator validates an LLM response based on a question provided by the user.
+This validator validates an LLM response based on a question provided by the user. The user-provided (rhetorical) question is expected to fact-check or ask the LLM whether the response is correct. If the LLM returns 'Yes' or 'No', the validator will pass or fail accordingly. If the LLM returns an invalid response, the validator will pass if the `pass_on_inavlid` flag is set to `True` in the metadata.
 
 ## Requirements
-- Dependencies:
-    - LiteLLM
+* Dependencies: `litellm`
+* API keys: Set your LLM provider API key as an environment variable which will be used by `litellm` to authenticate with the LLM provider.
+For more information on supported LLM providers and how to set up the API key, refer to the [LiteLLM documentation](https://docs.litellm.ai/docs/).
 
 ## Installation
 
 ```bash
-$ guardrails hub install hub://guardrails/response_evaluator
+guardrails hub install hub://guardrails/response_evaluator
 ```
 
 ## Usage Examples
@@ -33,30 +34,28 @@ In this example, we use the `response_evaluator` validator on any LLM generated 
 from guardrails.hub import ResponseEvaluator
 from guardrails import Guard
 
-# Initialize Validator
-val = ResponseEvaluator(llm_callable="gpt-3.5-turbo")
+# Initialize The Guard with this validator
+guard = Guard().use(ResponseEvaluator, llm_callable="gpt-3.5-turbo", on_fail="exception")
 
-# Setup Guard
-guard = Guard.from_string(
-    validators=[val, ...],
-)
-
-# Pass LLM output through guard
-guard.parse(
+# Test passing response
+guard.validate(
     "The capital of France is Paris", 
     metadata={
         "validation_question": "Is Paris the capital of France?", 
-        "pass_on_unsure"=True
+        "pass_on_invalid"=True
     }
 )  # Pass
 
-guard.parse(
-    "The capital of France is London", 
-    metadata={
-        "validation_question": "Is Paris the capital of France?", 
-    }
-)  # Fail
-
+try:
+    # Test failing response
+    guard.validate(
+        "The capital of France is London", 
+        metadata={
+            "validation_question": "Is Paris the capital of France?", 
+        }
+    )  # Fail
+except Exception as e:
+    print(e)
 ```
 
 ## API Reference
@@ -68,14 +67,14 @@ Initializes a new instance of the Validator class.
 
 **Parameters:**
 
-- **`llm_callable`** *(str):* The string name for the model used with LiteLLM. More info about available options [here](https://docs.litellm.ai/docs/completion/input)
+- **`llm_callable`** *(str):* The string name for the model used with LiteLLM. More info about available options [here](https://docs.litellm.ai/docs/). Default is `gpt-3.5-turbo`.
 - **`on_fail`** *(str, Callable):* The policy to enact when a validator fails. If `str`, must be one of `reask`, `fix`, `filter`, `refrain`, `noop`, `exception` or `fix_reask`. Otherwise, must be a function that is called when the validator fails.
 
 </ul>
 
 <br>
 
-**`__call__(self, value, metadata={}) → ValidationOutcome`**
+**`__call__(self, value, metadata={}) → ValidationResult`**
 
 <ul>
 
@@ -95,5 +94,6 @@ Note:
     | Key | Type | Description | Default | Required |
     | --- | --- | --- | --- | --- |
     | `validation_question` | String | The question to ask the LLM | N/A | Yes |
+    | `pass_on_invalid` | Boolean | Whether to pass the validation if the LLM returns an invalid response | False | No |
 
 </ul>
