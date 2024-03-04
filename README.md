@@ -31,31 +31,37 @@ In this example, we use the `response_evaluator` validator on any LLM generated 
 
 ```python
 # Import Guard and Validator
-from guardrails.hub import ResponseEvaluator
 from guardrails import Guard
+from guardrails.hub import ResponseEvaluator
 
 # Initialize The Guard with this validator
-guard = Guard().use(ResponseEvaluator, llm_callable="gpt-3.5-turbo", on_fail="exception")
+guard = Guard().use(
+    ResponseEvaluator, llm_callable="gpt-3.5-turbo", on_fail="exception"
+)
 
 # Test passing response
 guard.validate(
-    "The capital of France is Paris", 
+    "The capital of France is Paris",
     metadata={
-        "validation_question": "Is Paris the capital of France?", 
-        "pass_on_invalid"=True
-    }
+        "validation_question": "Is Paris the capital of France?",
+        "pass_on_invalid": True,
+    },
 )  # Pass
 
 try:
     # Test failing response
     guard.validate(
-        "The capital of France is London", 
+        "The capital of France is London",
         metadata={
-            "validation_question": "Is Paris the capital of France?", 
-        }
+            "validation_question": "Is Paris the capital of France?",
+        },
     )  # Fail
 except Exception as e:
     print(e)
+```
+Output:
+```console
+Validation failed for field with errors: The LLM says 'No'. The validation failed.
 ```
 
 ## API Reference
