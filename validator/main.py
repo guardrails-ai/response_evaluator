@@ -24,6 +24,7 @@ class ResponseEvaluator(Validator):
     | Programmatic fix              | N/A                               |
 
     Args:
+        llm_callable (str, optional): The LiteLLM model name string to use. Defaults to "gpt-3.5-turbo".
         on_fail (Callable, optional): A function to call when validation fails.
             Defaults to None.
     """
@@ -48,12 +49,12 @@ class ResponseEvaluator(Validator):
             prompt (str): The prompt to send to the LLM.
         """
         prompt = f"""
-        As an oracle of truth and logic, your task is to evaluate an LLM-generated response by answering a simple rhetorical question based on the context of that response.
-        You have been provided with the 'LLM Response' and a 'Question', and you need to generate 'Your Answer'.
-        Please answer the question with just a 'Yes' or a 'No'. If you're unsure, say 'Unsure'. Any other text is forbidden.
+        As an oracle of truth and logic, your task is to evaluate a 'Response' by answering a simple rhetorical 'Question' based on the context of that response.
+        You have been provided with the 'Response' and a 'Question', and you need to generate 'Your Answer'.
+        Please answer the question with just a 'Yes' or a 'No'. Any other answer is strictly forbidden.
         You'll be evaluated based on how well you understand the question and how well you follow the instructions to answer the question.
 
-        LLM Response:
+        Response:
         {value}
 
         Question:
@@ -77,15 +78,14 @@ class ResponseEvaluator(Validator):
         messages = [{"content": prompt, "role": "user"}]
 
         # 1. Get LLM response
+        # Strip whitespace and convert to lowercase
         try:
             response = completion(model=self.llm_callable, messages=messages)
             response = response.choices[0].message.content  # type: ignore
+            response = response.strip().lower()
         except Exception as e:
             raise RuntimeError(f"Error getting response from the LLM: {e}") from e
 
-        # 2. Strip the response of any leading/trailing whitespaces
-        # and convert to lowercase
-        response = response.strip().lower()
         # 3. Return the response
         return response
 
@@ -108,9 +108,9 @@ class ResponseEvaluator(Validator):
                 "Please provide a question to prompt the LLM."
             )
 
-        pass_on_unsure = metadata.get(
-            "pass_on_unsure", False
-        )  # Default behavior: Fail on 'Unsure'
+        pass_on_invalid = metadata.get(
+            "pass_on_invalid", False
+        )  # Default behavior: Fail on an invalid response
 
         # 2. Setup the prompt
         prompt = self.get_validation_prompt(value, validation_question)
@@ -118,20 +118,18 @@ class ResponseEvaluator(Validator):
         # 3. Get the LLM response
         llm_response = self.get_llm_response(prompt)
 
+        # 4. Check the LLM response and return the result
         if llm_response == "no":
             return FailResult(error_message="The LLM says 'No'. The validation failed.")
 
         if llm_response == "yes":
             return PassResult()
 
-        if llm_response == "unsure":
-            if pass_on_unsure:
-                warn("The LLM is unsure about the answer. Passing the validation...")
-                return PassResult()
-
-            warn("The LLM is unsure about the answer. Failing the validation...")
-            return FailResult(error_message="The LLM is unsure about the answer.")
-
-        # Else
-        warn("The LLM generated an invalid response. Passing the validation...")
-        return PassResult()
+        # If the LLM generates an answer other than 'Yes' or 'No',
+        # pass the validation, if the `pass_on_invalid` flag is set to True
+        if pass_on_invalid:
+            warn("The LLM returned an invalid answer. Passing the validation...")
+            return PassResult()
+        return FailResult(
+            error_message="The LLM returned an invalid answer. Failing the validation..."
+        )

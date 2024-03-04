@@ -1,12 +1,20 @@
+import pytest
 from guardrails import Guard
 from pydantic import BaseModel, Field
 from validator import ResponseEvaluator
-import pytest
 
 
 # Create a pydantic model with a field that uses the custom validator
 class ValidatorTestObject(BaseModel):
-    text: str = Field(validators=[ResponseEvaluator(on_fail="exception")])
+    text: str = Field(
+        validators=[
+            ResponseEvaluator(llm_callable="gpt-3.5-turbo", on_fail="exception")
+        ]
+    )
+
+
+# Create the guard object
+guard = Guard.from_pydantic(output_class=ValidatorTestObject)
 
 
 # Test happy path
@@ -21,7 +29,7 @@ class ValidatorTestObject(BaseModel):
             """,
             {
                 "validation_question": "Is Paris the capital of France?",
-                "pass_on_unsure": "True",
+                "pass_on_invalid": "True",
             },
         ),
         (
@@ -32,14 +40,13 @@ class ValidatorTestObject(BaseModel):
             """,
             {
                 "validation_question": "Did Greg score 12 points in the basketball game?",
-                "pass_on_unsure": "True",
+                "pass_on_invalid": "True",
             },
         ),
     ],
 )
 def test_happy_path(value, metadata):
     """Test happy path."""
-    guard = Guard.from_pydantic(output_class=ValidatorTestObject)
     response = guard.parse(value, metadata=metadata)
     print("Happy path response", response)
     assert response.validation_passed is True
@@ -71,7 +78,6 @@ def test_happy_path(value, metadata):
 )
 def test_fail_path(value, metadata):
     """Test fail path."""
-    guard = Guard.from_pydantic(output_class=ValidatorTestObject)
     with pytest.raises(Exception):
         response = guard.parse(
             value,
