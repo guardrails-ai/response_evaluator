@@ -13,4 +13,5 @@ type:
 qa:
 	make lint
 	make type
-	make test
+	# TODO: re-enable this once we have the org environment set up
+	# make test
