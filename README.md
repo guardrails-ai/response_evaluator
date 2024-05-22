@@ -1,22 +1,27 @@
 ## Overview
 
 | Developed by | Guardrails AI |
-| --- | --- |
 | Date of development | Feb 15, 2024 |
 | Validator type | Format |
-| Blog | - |
+| Blog |  |
 | License | Apache 2 |
 | Input/Output | Output |
 
 ## Description
 
+### Intended Use 
 This validator validates an LLM response based on a question provided by the user. The user-provided (rhetorical) question is expected to fact-check or ask the LLM whether the response is correct. If the LLM returns 'Yes' or 'No', the validator will pass or fail accordingly. If the LLM returns an invalid response, the validator will pass if the `pass_on_inavlid` flag is set to `True` in the metadata.
 
-## Requirements
-* Dependencies: `litellm`
-* API keys: Set your LLM provider API key as an environment variable which will be used by `litellm` to authenticate with the LLM provider.
-For more information on supported LLM providers and how to set up the API key, refer to the [LiteLLM documentation](https://docs.litellm.ai/docs/).
+### Requirements
 
+* Dependencies:
+    - `litellm`
+    - guardrails-ai>=0.4.0
+
+* API keys: Set your LLM provider API key as an environment variable which will be used by `litellm` to authenticate with the LLM provider.
+
+* For more information on supported LLM providers and how to set up the API key, refer to the [LiteLLM documentation](https://docs.litellm.ai/docs/).
+    
 ## Installation
 
 ```bash
@@ -64,7 +69,7 @@ Output:
 Validation failed for field with errors: The LLM says 'No'. The validation failed.
 ```
 
-## API Reference
+# API Reference
 
 **`__init__(self, llm_callable="gpt-3.5-turbo", on_fail="noop")`**
 <ul>
