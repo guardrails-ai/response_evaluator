@@ -25,7 +25,7 @@ This validator validates an LLM response based on a question provided by the use
 ## Installation
 
 ```bash
-guardrails hub install hub://guardrails/response_evaluator
+$ guardrails hub install hub://guardrails/response_evaluator
 ```
 
 ## Usage Examples
@@ -85,7 +85,7 @@ Initializes a new instance of the Validator class.
 
 <br>
 
-**`__call__(self, value, metadata={}) → ValidationResult`**
+**`__call__(self, value, metadata={}) -> ValidationResult`**
 
 <ul>
 
