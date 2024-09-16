@@ -83,7 +83,7 @@ Initializes a new instance of the Validator class.
 
 </ul>
 
-<br>
+<br/>
 
 **`__call__(self, value, metadata={}) -> ValidationResult`**
 
